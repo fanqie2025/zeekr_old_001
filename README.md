@@ -66,6 +66,18 @@
 > （HA 会提示需要重新认证）。这时在集成里点「重新认证」，用手机号再收一次验证码即可，
 > 不需要重新抓包。
 
+### 强烈建议：别用你自己的主账号
+
+极氪同一个账号**同一时间只认一处登录**。HA 和手机 App 用同一个账号时，手机那边一退登、
+一重登，HA 立刻报 `00A17 The account is currently logged in elsewhere.`，控车全废（云端
+仍会回「操作成功」，最容易被误判成集成坏了）。
+
+省心的顺序：
+
+1. **把车分享给一个备用账号**（极氪 App → 我的 → 车辆分享），HA 用备用账号登录，主账号随便折腾
+2. 用一张不常用的小号跑 HA
+3. 只有一个账号：手机 App 登出后不要再登录那个账号，否则每次都得点「重新认证」
+
 ---
 
 ## 四、`x-vehicle-identifier` 怎么取（唯一必须手工的一步）
@@ -78,11 +90,22 @@
 
 取法任选其一：
 
-- **mitmproxy（我们实测用的就是这条）**：电脑上 `mitmdump` 起代理 →
-  手机 WiFi 设 HTTP 代理指向电脑 → 手机装 mitmproxy CA 并在「证书信任设置」里信任 →
-  打开极氪 App 进车辆页 → 在抓到的 `gric-zhf-api.geely.com` 请求头里找 `x-vehicle-identifier`
-- **LSPosed + 抓包 App / HttpCanary 类工具**（安卓）
-- **路由器上挂代理**，让手机流量过一遍
+- **一键助手（最省事，Windows / macOS）**：`pip install mitmproxy` 后跑
+  `python tools/catch_identifier.py`，按它打印的地址在手机上设代理、装证书，
+  进一次 App 的「爱车」页 —— 脚本会直接把 44 个字符打出来，并写进 `vehicle_identifier.txt`
+- **已经有抓包文件**：`python tools/extract_identifier.py capture.har`，最后一行输出
+  `IDENTIFIER=...`（HAR / jsonl / 纯文本日志都吃）
+- **不想用电脑**：iOS 用 Stream / Proxyman，安卓用 Reqable（Android 7+ 需要 LSPosed 之类
+  才认用户证书，比用电脑折腾）
+- **原教旨 mitmproxy**：`mitmdump` 起代理 → 手机 WiFi 设 HTTP 代理 → 装 mitmproxy CA 并在
+  「证书信任设置」里信任 → 打开极氪 App 进车辆页 → 在 `gric-zhf-api.geely.com` 的请求头里
+  找 `x-vehicle-identifier`
+
+图文步骤、常见坑、给不会抓包的人用的 **AI 助手提示词**（可以直接粘给豆包 / DeepSeek /
+WorkBuddy，让 AI 一步步带着做）：
+
+- [`docs/获取车辆标识.md`](docs/获取车辆标识.md)
+- [`docs/AI助手提示词.md`](docs/AI助手提示词.md)
 
 取值特征：**44 个字符的 base64，以 `=` 结尾**，例如 `GNxEVYPZ7RjM1IPT1vqgC84gsNerq13jzTPXgfEX5Gg=`（示例，不是你的车）。
 
