@@ -186,7 +186,7 @@ def _load_manifest_version() -> str:
 
 INTEGRATION_VERSION = _load_manifest_version()
 
-ISSUE_URL = "https://github.com/RexzeLu/zeekr_ha/issues"
+ISSUE_URL = "https://github.com/fanqie2025/zeekr_old_001/issues"
 
 # Icons
 ICON = "mdi:format-quote-close"

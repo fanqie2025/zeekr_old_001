@@ -2,7 +2,7 @@
   "domain": "zeekr_ev",
   "name": "Zeekr 001 Old",
   "codeowners": [
-    "@RexzeLu"
+    "@fanqie2025"
   ],
   "config_flow": true,
   "dependencies": [],
