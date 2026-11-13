@@ -1,15 +1,15 @@
 {
   "domain": "zeekr_ev",
-  "name": "Zeekr 001 Legacy",
+  "name": "Zeekr 001 Old",
   "codeowners": [
     "@RexzeLu"
   ],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/OWNER/zeekr_001_legacy",
+  "documentation": "https://github.com/fanqie2025/zeekr_old_001",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/OWNER/zeekr_001_legacy/issues",
+  "issue_tracker": "https://github.com/fanqie2025/zeekr_old_001/issues",
   "loggers": [
     "custom_components.zeekr_ev"
   ],

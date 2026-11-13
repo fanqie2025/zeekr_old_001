@@ -41,8 +41,8 @@
 ### HACS（自定义仓库）
 
 1. HACS → 集成 → 右上角 ⋮ → 自定义存储库
-2. 添加 `https://github.com/OWNER/zeekr_001_legacy`，类别选「集成」
-3. 搜索 **Zeekr 001 Legacy** 安装，重启 Home Assistant
+2. 添加 `https://github.com/fanqie2025/zeekr_old_001`，类别选「集成」
+3. 搜索 **Zeekr 001 Old** 安装，重启 Home Assistant
 4. 设置 → 设备与服务 → 添加集成 → 搜 **Zeekr EV**
 
 ### 手工安装
