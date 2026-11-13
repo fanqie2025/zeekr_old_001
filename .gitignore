@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+*.bak*
+*.bak-dsh*
+.DS_Store
+/vendor/
+*.zip

@@ -1,0 +1,132 @@
+"""Button platform — one-shot remote actions."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+
+from homeassistant.components.button import ButtonEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .const import DOMAIN
+from .coordinator import ZeekrCoordinator
+from .entity import VehicleEntityManager, ZeekrEntity
+from .parser import PRESET_QUICK_COOL, PRESET_QUICK_HEAT
+
+
+@dataclass(frozen=True)
+class ButtonSpec:
+    key: str
+    name: str
+    icon: str
+    command: str = ""
+    service_id: str = ""
+    setting: dict[str, Any] | None = None
+    # Either a raw remote command (above), or one of the App's climate presets.
+    preset: str | None = None
+
+
+BUTTON_SPECS: tuple[ButtonSpec, ...] = (
+    ButtonSpec(
+        "flash_blinkers", "闪灯", "mdi:car-light-alert",
+        "start", "RHL",
+        {"serviceParameters": [{"key": "rhl", "value": "light-flash"}]},
+    ),
+    ButtonSpec(
+        "honk_flash", "鸣笛并闪灯", "mdi:bullhorn",
+        "start", "RHL",
+        {"serviceParameters": [{"key": "rhl", "value": "horn-light-flash"}]},
+    ),
+    ButtonSpec(
+        "parking_comfort_off", "关闭驻车舒适", "mdi:car-seat-cooler",
+        "stop", "PCM",
+        {"serviceParameters": [{"key": "parking_comfortable", "value": "false"}]},
+    ),
+    # The App's 极速制冷 / 极速制热.  Their own command was never captured, so
+    # these push the setpoint to the end of the scale — see
+    # ``parser.preset_setpoint``.
+    ButtonSpec("quick_cool", "极速降温", "mdi:snowflake",
+               preset=PRESET_QUICK_COOL),
+    ButtonSpec("quick_heat", "极速升温", "mdi:heat-wave",
+               preset=PRESET_QUICK_HEAT),
+    # 座舱通风走的是独立服务 RCC，不是 ZAF 的空调指令；时长放在
+    # ``setting.operationScheduling.duration``（App 传 6），不在
+    # serviceParameters 里。rcc.conditioner=50 / rcc.ventilation=0 是
+    # 2026-11-13 抓包时 App 自己发的值，效果 = airBlowerActive 变 true。
+    ButtonSpec(
+        "cabin_vent", "座舱通风", "mdi:weather-windy", "start", "RCC",
+        {
+            "operationScheduling": {"duration": "6"},
+            "serviceParameters": [
+                {"key": "rcc.conditioner", "value": "50"},
+                {"key": "rcc.ventilation", "value": "0"},
+            ],
+        },
+    ),
+)
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    """Set up the button platform."""
+    coordinator: ZeekrCoordinator = hass.data[DOMAIN][entry.entry_id]
+
+    def factory(vin: str) -> list[ButtonEntity]:
+        entities: list[ButtonEntity] = [
+            ZeekrCommandButton(coordinator, vin, spec) for spec in BUTTON_SPECS
+        ]
+        entities.append(ZeekrRefreshButton(coordinator, vin))
+        return entities
+
+    VehicleEntityManager(hass, entry, coordinator, async_add_entities, factory).start()
+
+
+class ZeekrCommandButton(ZeekrEntity, ButtonEntity):
+    """A button that fires a fixed remote-control command."""
+
+    def __init__(self, coordinator: ZeekrCoordinator, vin: str,
+                 spec: ButtonSpec) -> None:
+        super().__init__(coordinator, vin, spec.key)
+        self._attr_name = spec.name
+        self._attr_icon = spec.icon
+        self._spec = spec
+
+    async def async_press(self) -> None:
+        if self._spec.preset is not None:
+            await self.coordinator.async_set_climate_preset(
+                self.vin, self._spec.preset
+            )
+            return
+        await self.send_command(
+            self._spec.command, self._spec.service_id, self._spec.setting or {}
+        )
+
+
+class ZeekrRefreshButton(ZeekrEntity, ButtonEntity):
+    """Force an immediate poll (and vehicle rediscovery)."""
+
+    _attr_name = "立即刷新"
+    _attr_icon = "mdi:refresh"
+
+    def __init__(self, coordinator: ZeekrCoordinator, vin: str) -> None:
+        super().__init__(coordinator, vin, "refresh")
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        # The interval is adaptive: a sleeping car backs it off, so "why has my
+        # change not shown up yet" is answered by looking here.
+        polling = self.coordinator.polling_info
+        return {
+            "last_poll": self.coordinator.latest_poll_time,
+            "poll_interval_minutes": polling.get("current_minutes"),
+            "poll_interval_max_minutes": polling.get("max_minutes"),
+            "unchanged_polls": polling.get("idle_polls"),
+        }
+
+    async def async_press(self) -> None:
+        await self.coordinator.async_force_discovery()

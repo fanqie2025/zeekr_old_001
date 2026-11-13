@@ -1,0 +1,108 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "极氪账号接入方式",
+        "description": "请选择本配置项使用的登录通道 —— **这决定了能不能控车**：\n\n- **手机号 + 验证码**：**既能看状态，也能控车**。只需填手机号和短信验证码，集成会把这次登录换成 App 自己用的 GRIC 凭据。仍有一个值要手工补一次（App 只在内存里现算的 44 字符标识），取法见 README「怎么取车辆标识」。\n- **GRIC 令牌**：**既能看状态，也能控车**，但需要你自己抓一条令牌再填进来，外加同一个车辆标识。手机号登录走不通（拿不到短信 / 手里已有令牌）时用它。\n- **短信验证码（+86）**：只能**查看车辆状态**（电量 / 续航 / 位置 / 门锁车窗状态…），**不能控车**。下发指令的接口会被网关按接口粒度拒绝（`079001`），兜底的老管道会回「操作成功」却不会执行，车主账号也一样。\n\n{detail}",
+        "data": {
+          "auth_method": "接入方式"
+        }
+      },
+      "phone": {
+        "title": "极氪账号登录",
+        "description": "请输入极氪 App 注册的手机号，我们会向该号码发送短信验证码。\n{detail}",
+        "data": {
+          "region_code": "国家/地区代码",
+          "phone": "手机号"
+        }
+      },
+      "sms_code": {
+        "title": "输入短信验证码",
+        "description": "验证码已发送至 {phone}。\n{detail}",
+        "data": {
+          "sms_code": "短信验证码"
+        }
+      },
+      "gric": {
+        "title": "GRIC 令牌接入（可看状态 + 控车）",
+        "description": "这条通道可以读取车辆状态，也可以下发控制指令。需要两个值，都取自**同一台手机上、同一个能控车的极氪 App**：\n\n1. **refreshToken** —— App 请求 `POST gric-api.geely.com/ms-midground-user/api/v1.0/user/auth/refresh/token` 的**响应体**里 `data.refreshToken`（约 900 字符的 JWT，以 `eyJ` 开头；别抄成更长的 `accessToken`）。\n2. **x-vehicle-identifier** —— 任意一条 `gric-*.geely.com` 请求的**请求头**里那个 44 字符、以 `=` 结尾的 base64。它只在 App 运行内存里生成，手机存储里没有、也无法离线算出来。\n\n取法（抓包 App / mitmproxy / root 手机，含逐步操作）见 README「怎么取这两个值」。\n注意：令牌是单会话的 —— 保存后 HA 会用它换一对新令牌，手机上这个会话会掉线，属正常现象。\n{detail}",
+        "data": {
+          "gric_refresh_token": "refreshToken",
+          "vehicle_identifier": "车辆 x-vehicle-identifier（必填，见 README）"
+        }
+      },
+      "gric_ident": {
+        "title": "最后一个值：车辆标识",
+        "description": "已登录成功，**{vin}** 的可控车凭据也已就位。\n\n只剩 `x-vehicle-identifier` 这一个值 —— 它谁也推不出来：App 在内存里用原生库里的密钥现算，手机存储里不存、服务端也不下发。只能从一条真实请求里抄一次：\n\n1. 抓一次 App 的 HTTPS 流量（mitmproxy / LSPosed + 抓包 App / 路由器上挂代理都行）。\n2. 在 App 里打开车辆页面，让它发一条到 `gric-zhf-api.geely.com` 的请求。\n3. 从那条请求的**请求头**里复制 `x-vehicle-identifier`，44 个字符、以 `=` 结尾。\n\n它跟着车走、不跟账号：抓一次就一直有效，换手机换账号都不用重抓。填错会当场报 `00A06`，不会静默失败。\n{detail}",
+        "data": {
+          "vehicle_identifier": "x-vehicle-identifier（44 字符，来自一次抓包）"
+        }
+      },
+      "reauth_confirm": {
+        "title": "重新登录",
+        "description": "{phone} 的登录凭据已失效，请重新获取验证码以继续。\n{detail}"
+      }
+    },
+    "error": {
+      "phone_required": "请输入手机号",
+      "code_required": "请输入验证码",
+      "cannot_connect": "无法连接极氪服务：{detail}",
+      "sms_failed": "验证码发送失败：{detail}",
+      "invalid_auth": "登录失败：{detail}",
+      "gric_token_required": "请粘贴 refreshToken",
+      "gric_identifier_required": "请填写车辆的 x-vehicle-identifier（取法见 README「怎么取这两个值」）",
+      "gric_refresh_failed": "refreshToken 无效或被拒绝：{detail}",
+      "gric_identifier_failed": "车辆标识校验失败：{detail}",
+      "gric_exchange_failed": "已登录成功，但换取 GRIC 凭据失败：{detail}",
+      "unknown": "未知错误"
+    },
+    "abort": {
+      "already_configured": "该账号已配置",
+      "reauth_successful": "重新登录成功"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "极氪集成选项",
+        "description": "{channel_hint}",
+        "data": {
+          "polling_interval": "轮询间隔（分钟）",
+          "enable_commands": "允许下发控制指令",
+          "seat_duration": "座椅加热/通风时长（分钟）",
+          "ac_duration": "空调运行时长（分钟）",
+          "steering_wheel_duration": "方向盘加热时长（分钟）",
+          "vehicle_token": "车辆 X-VIN 令牌（短信通道，可选）",
+          "vehicle_identifier": "车辆 x-vehicle-identifier（GRIC 通道，必填）",
+          "hidden_entities": "这辆车没有的功能（勾选后不再创建对应实体）"
+        }
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "刷新车辆数据",
+      "description": "立即重新获取车辆列表与状态。",
+      "fields": {
+        "config_entry_id": {
+          "name": "配置项",
+          "description": "仅刷新指定的极氪配置项；留空则刷新全部。"
+        }
+      }
+    },
+    "dump_raw_status": {
+      "name": "导出原始状态报文",
+      "description": "返回网关返回的原始 JSON 报文（已剔除令牌），用于调试字段映射。",
+      "fields": {
+        "config_entry_id": {
+          "name": "配置项",
+          "description": "仅导出指定配置项；留空则导出全部。"
+        },
+        "vin": {
+          "name": "VIN",
+          "description": "仅导出指定车辆的报文；留空则导出全部车辆。"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,108 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Zeekr account access",
+        "description": "Choose the login channel for this config entry — **this decides whether the car can be controlled**:\n\n- **Phone + verification code**: **status *and* control**. You only type a phone number and the SMS code; the integration then exchanges the app login for the same GRIC credentials the mobile app uses. One value still has to be supplied by hand (a 44-character identifier that the app only computes in memory) — see the README section \"How to obtain it\".\n- **GRIC token**: **status *and* control**, seeded from a token you capture yourself, plus the same identifier. Use this when the phone login is not an option (no SMS access, or you already have the token).\n- **SMS verification code (+86)**: **vehicle status only** (battery, range, location, lock/door state…). **No control** — the gateway refuses every command interface for this token generation (`079001`), and the legacy fallback pipe answers \"success\" without executing anything. Logging in as the car's owner makes no difference.\n\n{detail}",
+        "data": {
+          "auth_method": "Login channel"
+        }
+      },
+      "phone": {
+        "title": "Zeekr account login",
+        "description": "Enter the phone number registered with the Zeekr app. An SMS verification code will be sent to it.\n{detail}",
+        "data": {
+          "region_code": "Country / region code",
+          "phone": "Phone number"
+        }
+      },
+      "sms_code": {
+        "title": "Enter verification code",
+        "description": "A verification code was sent to {phone}.\n{detail}",
+        "data": {
+          "sms_code": "SMS verification code"
+        }
+      },
+      "gric": {
+        "title": "GRIC token access (status + control)",
+        "description": "This channel can read vehicle status *and* send control commands. It needs two values, both taken from **the same controllable Zeekr app session on one phone**:\n\n1. **refreshToken** — from the **response body** of the app's `POST gric-api.geely.com/ms-midground-user/api/v1.0/user/auth/refresh/token`, field `data.refreshToken` (a ~900-character JWT starting with `eyJ`; do not paste the longer `accessToken`).\n2. **x-vehicle-identifier** — the 44-character base64 (ends with `=`) in the **request headers** of any `gric-*.geely.com` request. It is computed inside the app's runtime only: it is not stored on the phone and cannot be derived offline.\n\nStep-by-step capture instructions (capture app / mitmproxy / rooted phone) are in the README section \"How to obtain both values\".\nNote: tokens are single-session — once saved, Home Assistant exchanges them for a new pair and the phone session is signed out. That is expected.\n{detail}",
+        "data": {
+          "gric_refresh_token": "refreshToken",
+          "vehicle_identifier": "Vehicle x-vehicle-identifier (required, see README)"
+        }
+      },
+      "gric_ident": {
+        "title": "One last value: the vehicle identifier",
+        "description": "Signed in, and the control-capable credentials are in place for **{vin}**.\n\nThe last value, `x-vehicle-identifier`, cannot be computed by anyone: the app derives it in memory from a key that only exists inside its native library, and it is never stored on the phone nor returned by the server. It has to be copied once from a real request:\n\n1. Capture the app's HTTPS traffic (mitmproxy / LSPosed + a capture app / a proxy on your router).\n2. Open the car in the app so a request to `gric-zhf-api.geely.com` is sent.\n3. From that request's **headers**, copy `x-vehicle-identifier` — 44 characters of base64 ending with `=`.\n\nIt is bound to the car, not to the account: capture it once and it keeps working, even after switching phones or accounts. A wrong value is rejected immediately (`00A06`), never silently.\n{detail}",
+        "data": {
+          "vehicle_identifier": "x-vehicle-identifier (44 chars, from a captured request)"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in again",
+        "description": "The stored credentials for {phone} have expired. Request a new verification code to continue.\n{detail}"
+      }
+    },
+    "error": {
+      "phone_required": "Please enter a phone number",
+      "code_required": "Please enter the verification code",
+      "cannot_connect": "Cannot reach the Zeekr service: {detail}",
+      "sms_failed": "Could not send the verification code: {detail}",
+      "invalid_auth": "Login failed: {detail}",
+      "gric_token_required": "Please paste the refreshToken",
+      "gric_identifier_required": "Please enter the vehicle's x-vehicle-identifier (see the README section \"How to obtain both values\")",
+      "gric_refresh_failed": "The refreshToken was rejected or has expired: {detail}",
+      "gric_identifier_failed": "Vehicle identifier rejected: {detail}",
+      "gric_exchange_failed": "Signed in, but the GRIC credentials could not be obtained: {detail}",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "already_configured": "This account is already configured",
+      "reauth_successful": "Signed in again successfully"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Zeekr integration options",
+        "description": "{channel_hint}",
+        "data": {
+          "polling_interval": "Polling interval (minutes)",
+          "enable_commands": "Allow sending control commands",
+          "seat_duration": "Seat heating / ventilation duration (minutes)",
+          "ac_duration": "Air conditioning duration (minutes)",
+          "steering_wheel_duration": "Steering wheel heating duration (minutes)",
+          "vehicle_token": "Vehicle X-VIN token (SMS channel, optional)",
+          "vehicle_identifier": "Vehicle x-vehicle-identifier (GRIC channel, required)",
+          "hidden_entities": "Features this car does not have (entities are not created)"
+        }
+      }
+    }
+  },
+  "services": {
+    "refresh": {
+      "name": "Refresh vehicle data",
+      "description": "Re-query the vehicle list and status immediately.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only refresh this Zeekr account. Leave empty for all."
+        }
+      }
+    },
+    "dump_raw_status": {
+      "name": "Dump raw status payload",
+      "description": "Return the raw gateway JSON (tokens removed) for debugging field mapping.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Config entry",
+          "description": "Only dump this Zeekr account. Leave empty for all."
+        },
+        "vin": {
+          "name": "VIN",
+          "description": "Only dump this vehicle. Leave empty for all vehicles."
+        }
+      }
+    }
+  }
+}

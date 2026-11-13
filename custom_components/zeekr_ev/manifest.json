@@ -1,0 +1,20 @@
+{
+  "domain": "zeekr_ev",
+  "name": "Zeekr 001 Legacy",
+  "codeowners": [
+    "@RexzeLu"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/OWNER/zeekr_001_legacy",
+  "integration_type": "hub",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/OWNER/zeekr_001_legacy/issues",
+  "loggers": [
+    "custom_components.zeekr_ev"
+  ],
+  "requirements": [
+    "pycryptodome>=3.20.0"
+  ],
+  "version": "0.5.0"
+}
